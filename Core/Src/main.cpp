@@ -21,7 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <cstring>
+#include <cstdio>
+#include <iostream>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -97,16 +99,18 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
-  int const FLASH_COUNT = 10;
-  int const AVERAGE_THRESHOLD = 200;
+  int const FLASH_COUNT = 12;
+  int const AVERAGE_THRESHOLD = 40;
   int const SENSOR_DELAY = 1;
-  int const REFRESH_DELAY = 5000;
+  int const REFRESH_DELAY = 1000;
+
 
   int slope_arr[FLASH_COUNT];
-  int stored_intensity = 2000000; // Large initial value to assign the intial value, ensures that a turning point will be marked on the first step.
+  int stored_intensity = 50000; // Large initial value to assign the initial value, ensures that a turning point will be marked on the first step.
   int previous_intensity = 0;
   int blind_count = 0;
-  bool increasing = 0;
+  bool increasing = false;
+  bool vision_state{true};
   char msg[20];
   int lux = 0;
   int i = 0;
@@ -118,11 +122,13 @@ int main(void)
   while (1)
   {
 
+	  std::cout << "Goodbye World!" << std::endl;
+
 	  HAL_ADC_Start(&hadc1);
 	  HAL_ADC_PollForConversion(&hadc1,20);
 	  lux = HAL_ADC_GetValue(&hadc1);
-	  sprintf(msg,"light: %hu \r\n", lux*3.3/4095.0);
-	  HAL_UART_Transmit(&huart2,(uint8_t*)msg,strlen(msg),HAL_MAX_DELAY);
+	  sprintf(msg,"light: %hu \r\n", lux);
+	  HAL_UART_Transmit(&huart2,(uint8_t*)msg, strlen(msg),HAL_MAX_DELAY);
 	  HAL_Delay(SENSOR_DELAY);//500ms
 
 	  // Finds a turning point.
@@ -146,9 +152,14 @@ int main(void)
 
 	 }
 
+	 sprintf(msg, "slope_value: %hu \r\n", (sum/FLASH_COUNT));
+	 HAL_UART_Transmit(&huart2,(uint8_t*)msg, strlen(msg),HAL_MAX_DELAY);
+
+	 HAL_UART_Transmit(&huart2,(uint8_t*)msg, strlen(msg),HAL_MAX_DELAY);
+
 	 if (sum / FLASH_COUNT > AVERAGE_THRESHOLD && vision_state) {
 
-		 blind();
+		 blind(vision_state);
 		 vision_state = false;
 		 blind_count = 0;
 
@@ -158,7 +169,7 @@ int main(void)
 
 		 if (blind_count > REFRESH_DELAY && (sum / FLASH_COUNT) < AVERAGE_THRESHOLD) {
 
-			 sight();
+			 sight(vision_state);
 			 vision_state = true;
 
 		 }
@@ -355,6 +366,11 @@ static void MX_GPIO_Init(void)
 // Should only run if the user is not already blind.
 void blind(bool vision_state) {
 
+	std::string test_message{"BLINDED! BLINDED!\n\r"};
+	const char* test_message_c{test_message.c_str()};
+
+	HAL_UART_Transmit(&huart2,(uint8_t*)test_message_c, strlen(test_message_c), HAL_MAX_DELAY);
+
 	  if (!vision_state) {
 
 		  return;
@@ -362,12 +378,12 @@ void blind(bool vision_state) {
 	  }
 
 	  // Turns on the motor in one direction. Note that other pin is low or ground.
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, 1);
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_SET);
 
 	  HAL_Delay(200);
 
 
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, 0);
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_10, GPIO_PIN_RESET);
 
 	  return;
 
@@ -376,6 +392,12 @@ void blind(bool vision_state) {
 // Should only run if the user is not already seeing.
 void sight(bool vision_state) {
 
+	std::string test_message{"UNBLINDED! UNBLINDED!\n\r"};
+	const char* test_message_c{test_message.c_str()};
+
+	HAL_UART_Transmit(&huart2,(uint8_t*)test_message_c, strlen(test_message_c), HAL_MAX_DELAY);
+
+
 	  if (vision_state) {
 
 		  return;
@@ -383,12 +405,12 @@ void sight(bool vision_state) {
 	  }
 
 	  // Turns on the motor in one direction. Note that other pin is low or ground.
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, 1);
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
 
 	  HAL_Delay(200);
 
 
-	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, 0);
+	  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
 
 	  return;
 
